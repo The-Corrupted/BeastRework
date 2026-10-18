@@ -25,26 +25,6 @@ internal static class RageBudget {
     private const int MAXIMUM_ATTACK_BUDGET = 8;
     private static int attackBudget = 0;
     private static AttackType pendingAttack = AttackType.None;
-    // The rage effect can end before rage is actually reset which can result in UI bugs. We're going to keep
-    // a guard that tells us if the rage effect has ended so we don't accidentally increment the effect after
-    // the UI has been reset
-    private static bool rageEffectActive = false;
-
-    private static void EndRage(HeroController instance)
-    {
-
-        if (!instance.WarriorState.IsInRageMode)
-        {
-            return;
-        }
-
-        Debug.Log("[BeastRework] Rage crest reset. Clearing state");
-
-        attackBudget = 0;
-        pendingAttack = AttackType.None;
-        rageEffectActive = false;
-        CallResetWarriorCrestState(instance);
-    }
 
     // Make ResetWarriorCrestState available to us so we can do a targeted reset of the warrior crest
     // rather than reseting all crests.
@@ -60,18 +40,26 @@ internal static class RageBudget {
     // and set pending attack back to None
     [HarmonyPatch(typeof(HeroController), "ResetWarriorCrestState")]
     [HarmonyPostfix]
-    private static void OnWarriorCrestReset(HeroController __instance)
-    {
+    private static void OnWarriorCrestReset(HeroController __instance) {
         Debug.Log("[BeastRework] Rage crest reset. Clearing state");
         attackBudget = 0;
         pendingAttack = AttackType.None;
     }
 
-    // If the rage effect has been reset, set the rageEffectActive flag to false
-    [HarmonyPatch(typeof(HeroController), "ResetWarriorRageEffect")]
-    [HarmonyPostfix]
-    private static void OnRageEffectReset() {
-        rageEffectActive = false;
+
+    private static void EndRage(HeroController instance)
+    {
+
+        if (!instance.WarriorState.IsInRageMode)
+        {
+            return;
+        }
+
+        Debug.Log("[BeastRework] Rage crest reset. Clearing state");
+
+        attackBudget = 0;
+        pendingAttack = AttackType.None;
+        CallResetWarriorCrestState(instance);
     }
 
     // A valid hit on an enemy should add additional time to your rage timer
@@ -79,8 +67,8 @@ internal static class RageBudget {
     [HarmonyPostfix]
     private static void OnNailHitEnemy(ref HeroController.WarriorCrestStateInfo ___warriorState, HitInstance hitInstance)
     {
-        // Increment timer if the player hit and did damage
-        if (___warriorState.IsInRageMode && hitInstance.DamageDealt > 0 && rageEffectActive)
+        // Reset countdown timer if the player hit and did damage
+        if (___warriorState.IsInRageMode && hitInstance.DamageDealt > 0)
         {
             Debug.Log($"[BeastRework] Nail attack hit. Extending rage timeout. Prev | {___warriorState.RageEffectTimeLeft} : New | {RAGE_EFFECT_TIME_CONSTANT}");
             ___warriorState.RageEffectTimeLeft += RAGE_EFFECT_REPLENISHMENT;
@@ -115,7 +103,6 @@ internal static class RageBudget {
     {
         if (!___warriorState.IsInRageMode) return;
         attackBudget = MAXIMUM_ATTACK_BUDGET;
-        rageEffectActive = true;
         Debug.Log($"[BeastRework] Attack attackBudget set to 8");
 
         ___warriorState.RageEffectTimeLeft = RAGE_EFFECT_TIME_CONSTANT;
