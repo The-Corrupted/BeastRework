@@ -1,4 +1,5 @@
 #!/usr/bin/bash
+set -euo pipefail
 
 DEPLOYMENT_DIR="$HOME/.steam/steam/steamapps/common/Hollow Knight Silksong/BepInEx/plugins/BeastRework/"
 
